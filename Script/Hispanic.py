@@ -1,11 +1,11 @@
 #-------------------------------------------------------------------------------
-# Name:        ULIMS Perfomance Management
-# Purpose:     Script scheduled in windows scheduler used to perform enteprise geodatabase perfoamnce tuning
+# Name:        Hispanic Marketing Model Automation
+# Purpose:     Based on the automation model
 #
 # Author:      dmuthami
 # Email :      waruid@gmail.com
 #
-# Created:     17/03/2015
+# Created:     01/04/2015(dd/mm/yyyy)
 # Copyright:   (c) dmuthami 2015
 # Licence:     Absolutely Free for use and distribution
 #-------------------------------------------------------------------------------
@@ -16,12 +16,12 @@ import traceback
 from arcpy import env
 from datetime import datetime
 
-#Set-up logging
+#Set-up logging object
 logger = logging.getLogger('hispanic')
 
 def makeSelection(workspace, blockGroup):
 
-    #Apply field delimeters for the Query supplied
+    #Apply field delimiters for the Query supplied
     HSP_PercFieldDelimeter = arcpy.AddFieldDelimiters(env.workspace , "HSP_Perc")
     NHSPBLK_PFieldDelimeter = arcpy.AddFieldDelimiters(env.workspace , "NHSPBLK_P")
     NHSPAI_PFieldDelimeter = arcpy.AddFieldDelimiters(env.workspace , "NHSPAI_P")
@@ -31,7 +31,7 @@ def makeSelection(workspace, blockGroup):
     NHSPOTH_PFieldDelimeter = arcpy.AddFieldDelimiters(env.workspace , "NHSPOTH_P")
     NHSPMLT_PFieldDelimeter = arcpy.AddFieldDelimiters(env.workspace , "NHSPMLT_P")
 
-    #Selection required
+    #Expression box query
     #HSP_Perc >= 40 OR (HSP_Perc > NHSPWHT_P AND
     #HSP_Perc > NHSPBLK_P AND HSP_Perc > NHSPAI_P AND
     #HSP_Perc > NHSPASN_P AND HSP_Perc > NHSPPI_P AND
@@ -82,7 +82,7 @@ def makeSelection(workspace, blockGroup):
             logger.info("Forcefully deletes the in memory stores feature layer "+pymsg)
             logger.info("Forcefully deletes the in memory stores feature layer "+msgs)
 
-    #Make feature layer
+    #Make feature layer for block group
     arcpy.MakeFeatureLayer_management(blockGroup, blockGroupFeatureLayer)
 
     #make a fresh selection here
@@ -93,12 +93,14 @@ def makeSelection(workspace, blockGroup):
     featCount = arcpy.GetCount_management(blockGroupFeatureLayer)
     message = "Number of Hispanic blocks: {0} ".format(featCount)
 
+    #Log message and send to console
     logger.info(message)
     print message
 
+    #Return the feature layer
     return blockGroupFeatureLayer
 
-##Select hispanic areas based on selection
+##Updates hispanic areas based on selection layer and supplied update value
 def updateHispanicAreas(workspace,blockGroupFeatureLayer,field,updatevalue):
     try:
 
@@ -117,13 +119,13 @@ def updateHispanicAreas(workspace,blockGroupFeatureLayer,field,updatevalue):
         with arcpy.da.UpdateCursor(blockGroupFeatureLayer, field) as cursor:
             for row in cursor:# loops per record in the recordset and returns an array of objects
 
-                #update zone affiliationS
+                #update zone affiliation to the supplied value
                 row[0] = int(updatevalue)
 
                 # Update the cursor with the updated row object that contains now the new record
                 cursor.updateRow(row)
 
-        # Stop the edit operation.and commit the changes
+        # Stop the edit operation and commit the changes
         edit.stopOperation()
 
         # Stop the edit session and save the changes
@@ -157,10 +159,6 @@ def updateHispanicAreas(workspace,blockGroupFeatureLayer,field,updatevalue):
 def calculateRacePercentage(workspace,blockGroupFeatureLayer,fieldsPer,fieldsPop):
     try:
 
-        ## Below code
-        ## Make (Non Collegiate) IPEDS null
-        ##
-
         # Start an edit session. Must provide the workspace.
         edit = arcpy.da.Editor(workspace)
 
@@ -179,8 +177,10 @@ def calculateRacePercentage(workspace,blockGroupFeatureLayer,fieldsPer,fieldsPop
         with arcpy.da.UpdateCursor(blockGroupFeatureLayer, mergedFieldList) as cursor:
             for row in cursor:# loops per record in the recordset and returns an array of objects
 
+                ##Sample lists of the fields
                 #fieldsPer = ["HSP_Perc","NHSPWHT_P","NHSPBLK_P","NHSPAI_P","NHSPASN_P","NHSPPI_P","NHSPOTH_P","NHSPMLT_P"]
                 #fieldsPop = ["HISPPOP_CY","NHSPWHT_CY","NHSPBLK_CY","NHSPAI_CY","NHSPASN_CY","NHSPPI_CY","NHSPOTH_CY","NHSPMLT_CY","TOTPOP_CY"]
+
                 #Compute percentage for each group
 
                 totalPopulation = row[mergedFieldList.index("TOTPOP_CY")]
@@ -233,8 +233,8 @@ def calculateRacePercentage(workspace,blockGroupFeatureLayer,fieldsPer,fieldsPop
 #main function
 def ulimsPerfomanceManagement():
     try:
-        #Export to text file#
-        currentDate = datetime.now().strftime("-%y-%m-%d_%H-%M-%S") # Current time
+        #Timestamp appended t the log file#
+        currentDate = datetime.now().strftime("-%d-%m-%y_%H-%M-%S") # Current time
 
         #Set-up some error logging code.
         logfile = r"C:\DAVID-MUTHAMI\GIS Data\RED-BULL\Hispanic Market Potential\Hispanic MKT Modeling\Script" + "\\"+ "hispanic_logfile" + str(currentDate)+ ".log"
@@ -252,6 +252,7 @@ def ulimsPerfomanceManagement():
         ## Set overwrite in workspace to true
         env.overwriteOutput = True
 
+        #Feature class used in system
         blockGroup = "BG_Demo"
         stores = "US_Stores"
 
@@ -314,9 +315,9 @@ def ulimsPerfomanceManagement():
         #Make selection of hispanic layer and return feature layer
         blockGroupFeatureLayer = makeSelection(env.workspace, blockGroup)
 
-        field = ["zone_affiliation"]
-        updatevalue = 1
-        #For hispanic layer. Persist to value 1
+        field = ["zone_affiliation"]#he field stores if block group is hispanic or not
+        updatevalue = 1 #update domain value for hispanic
+        #For hispanic layer. Call function & Persist to value 1
         updateHispanicAreas(env.workspace,blockGroupFeatureLayer,field,updatevalue)
 
         #Switch selection to non hispanic
